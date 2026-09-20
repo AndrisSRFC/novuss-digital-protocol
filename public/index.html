@@ -562,30 +562,18 @@ function updateScreen() {
     */
 
     if (
-        games[0] !== null &&
-        games[1] !== null &&
-        games[2] !== null &&
-        games[3] !== null &&
-        games[4] !== null &&
-        games[5] !== null
-    ) {
+    games[0] !== null &&
+    games[1] !== null &&
+    games[2] !== null &&
+    games[3] !== null &&
+    games[4] !== null &&
+    games[5] !== null
+) {
 
-        if (r === 3 && z === 3) {
-
-            /*
-               3 : 3 vēl NAV gala rezultāts.
-               Jābūt izspēlētai 7. izspēlei.
-            */
-
-            if (games[6] !== null) {
-
-                canFinish = true;
-            } else {
-
-                canFinish = false;
-            }
-        }
+    if (r === 3 && z === 3) {
+        canFinish = true;
     }
+}
 
 
     /*
@@ -614,10 +602,9 @@ function updateScreen() {
     let status =
         document.getElementById("status");
 
-    if (r === 3 && z === 3 && games[6] === null) {
-
-        status.textContent =
-            "3 : 3 — jāizspēlē 7. izspēle.";
+    if (r === 3 && z === 3) {
+    status.textContent =
+        "Rezultāts 3 : 3 — spēli var pabeigt.";
 
     } else if (r < 4 && z < 4) {
 
@@ -713,7 +700,9 @@ function finishGame() {
         valid = true;
     }
 
-
+if (r === 3 && z === 3) {
+    valid = true;
+}
     if (!valid) {
 
         alert(
