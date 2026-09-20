@@ -1,1 +1,796 @@
+<!DOCTYPE html>
+<html lang="lv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<title>Novuss digitālais protokols</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 16px;
+    background: #eef1f5;
+    font-family: Arial, sans-serif;
+    color: #222;
+}
+
+.phone {
+    max-width: 520px;
+    margin: auto;
+    background: white;
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 18px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.header .table {
+    margin-top: 6px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.players {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.player {
+    border: 2px solid #ddd;
+    border-radius: 14px;
+    padding: 12px;
+    text-align: center;
+}
+
+.player-name {
+    font-size: 18px;
+    font-weight: bold;
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.score {
+    font-size: 42px;
+    font-weight: bold;
+    margin: 8px 0;
+}
+
+.stose-title {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.stose {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.stose button {
+    width: 42px;
+    height: 38px;
+    border: 0;
+    border-radius: 9px;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.stose-minus {
+    background: #e5e5e5;
+}
+
+.stose-plus {
+    background: #e5e5e5;
+}
+
+.stose-count {
+    min-width: 35px;
+    font-size: 21px;
+    font-weight: bold;
+}
+
+.section-title {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.games {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 18px;
+}
+
+.game {
+    text-align: center;
+}
+
+.game-number {
+    font-size: 12px;
+    margin-bottom: 5px;
+    color: #666;
+}
+
+.game button {
+    width: 100%;
+    aspect-ratio: 1;
+    border: 2px solid #ccc;
+    background: #f5f5f5;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.game button.selected-r {
+    background: #d9ecff;
+    border-color: #2383d9;
+}
+
+.game button.selected-z {
+    background: #ffe0e0;
+    border-color: #d92323;
+}
+
+.game button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.result-box {
+    text-align: center;
+    padding: 12px;
+    border-radius: 12px;
+    background: #f1f3f5;
+    margin-bottom: 15px;
+}
+
+.result-label {
+    font-size: 14px;
+    color: #666;
+}
+
+.result {
+    font-size: 34px;
+    font-weight: bold;
+    margin-top: 3px;
+}
+
+.finish {
+    width: 100%;
+    padding: 17px;
+    border: 0;
+    border-radius: 13px;
+    font-size: 20px;
+    font-weight: bold;
+    color: white;
+    background: #d93025;
+    cursor: not-allowed;
+}
+
+.finish.active {
+    background: #1f9d55;
+    cursor: pointer;
+}
+
+.status {
+    text-align: center;
+    margin-top: 12px;
+    min-height: 22px;
+    font-weight: bold;
+}
+
+.reset {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #bbb;
+    border-radius: 10px;
+    background: white;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.info {
+    margin-top: 18px;
+    padding: 12px;
+    border-radius: 10px;
+    background: #f7f7f7;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.4;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="phone">
+
+    <div class="header">
+        <h1>NOVUSS</h1>
+        <div class="table">Galds Nr. 1</div>
+    </div>
+
+    <div class="players">
+
+        <div class="player">
+            <div class="player-name">
+                Voits Rinalds
+            </div>
+
+            <div class="score" id="scoreR">
+                0
+            </div>
+
+            <div class="stose-title">
+                ŠTOSE
+            </div>
+
+            <div class="stose">
+                <button
+                    class="stose-minus"
+                    onclick="changeStose('R', -1)">
+                    −
+                </button>
+
+                <div
+                    class="stose-count"
+                    id="stoseR">
+                    0
+                </div>
+
+                <button
+                    class="stose-plus"
+                    onclick="changeStose('R', 1)">
+                    +
+                </button>
+            </div>
+        </div>
+
+
+        <div class="player">
+            <div class="player-name">
+                Barbaks Ziedonis
+            </div>
+
+            <div class="score" id="scoreZ">
+                0
+            </div>
+
+            <div class="stose-title">
+                ŠTOSE
+            </div>
+
+            <div class="stose">
+                <button
+                    class="stose-minus"
+                    onclick="changeStose('Z', -1)">
+                    −
+                </button>
+
+                <div
+                    class="stose-count"
+                    id="stoseZ">
+                    0
+                </div>
+
+                <button
+                    class="stose-plus"
+                    onclick="changeStose('Z', 1)">
+                    +
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+
+    <div class="section-title">
+        IZSPĒLES
+    </div>
+
+    <div class="games">
+
+        <div class="game">
+            <div class="game-number">1</div>
+            <button onclick="selectGame(0)" id="game0">
+                —
+            </button>
+        </div>
+
+        <div class="game">
+            <div class="game-number">2</div>
+            <button onclick="selectGame(1)" id="game1">
+                —
+            </button>
+        </div>
+
+        <div class="game">
+            <div class="game-number">3</div>
+            <button onclick="selectGame(2)" id="game2">
+                —
+            </button>
+        </div>
+
+        <div class="game">
+            <div class="game-number">4</div>
+            <button onclick="selectGame(3)" id="game3">
+                —
+            </button>
+        </div>
+
+        <div class="game">
+            <div class="game-number">5</div>
+            <button onclick="selectGame(4)" id="game4">
+                —
+            </button>
+        </div>
+
+        <div class="game">
+            <div class="game-number">6</div>
+            <button onclick="selectGame(5)" id="game5">
+                —
+            </button>
+        </div>
+
+        <div class="game">
+            <div class="game-number">7</div>
+            <button onclick="selectGame(6)" id="game6">
+                —
+            </button>
+        </div>
+
+    </div>
+
+
+    <div class="result-box">
+
+        <div class="result-label">
+            Pašreizējais rezultāts
+        </div>
+
+        <div class="result" id="result">
+            0 : 0
+        </div>
+
+    </div>
+
+
+    <button
+        class="finish"
+        id="finishButton"
+        onclick="finishGame()"
+        disabled>
+        PABEIGT SPĒLI
+    </button>
+
+    <div
+        class="status"
+        id="status">
+    </div>
+
+
+    <button
+        class="reset"
+        onclick="resetGame()">
+        ATIESTATĪT SPĒLI
+    </button>
+
+
+    <div class="info">
+
+        <b>Spēles noteikums:</b><br>
+
+        Spēle beidzas, kad kāds spēlētājs sasniedz
+        4 punktus.
+
+        Ja pēc 6 izspēlēm ir 3 : 3,
+        jāizspēlē 7. izspēle.
+
+        7. izspēle dod gala rezultātu
+        4 : 3 vai 3 : 4.
+
+    </div>
+
+</div>
+
+
+<script>
+
+let games = [null, null, null, null, null, null, null];
+
+let stoseR = 0;
+let stoseZ = 0;
+
+let finished = false;
+
+
+/* =========================
+   IZSPĒLES IZVĒLE
+========================= */
+
+function selectGame(index) {
+
+    if (finished) {
+        return;
+    }
+
+    /*
+       Ja šī izspēle jau ir izvēlēta,
+       nospiežot vēlreiz to var mainīt.
+    */
+
+    if (games[index] === null) {
+
+        /*
+           Pirmais klikšķis:
+           Rinalds
+        */
+
+        games[index] = "R";
+
+    } else if (games[index] === "R") {
+
+        /*
+           Otrais klikšķis:
+           Ziedonis
+        */
+
+        games[index] = "Z";
+
+    } else {
+
+        /*
+           Trešais klikšķis:
+           notīra izspēli
+        */
+
+        games[index] = null;
+    }
+
+    updateScreen();
+}
+
+
+/* =========================
+   EKRĀNA ATJAUNOŠANA
+========================= */
+
+function updateScreen() {
+
+    let r = 0;
+    let z = 0;
+
+    games.forEach(function(result) {
+
+        if (result === "R") {
+            r++;
+        }
+
+        if (result === "Z") {
+            z++;
+        }
+
+    });
+
+
+    document.getElementById("scoreR").textContent = r;
+    document.getElementById("scoreZ").textContent = z;
+
+    document.getElementById("result").textContent =
+        r + " : " + z;
+
+
+    /*
+       Atjauno izspēļu pogas
+    */
+
+    games.forEach(function(result, index) {
+
+        let button =
+            document.getElementById("game" + index);
+
+        button.classList.remove("selected-r");
+        button.classList.remove("selected-z");
+
+        if (result === "R") {
+
+            button.textContent = "R";
+            button.classList.add("selected-r");
+
+        } else if (result === "Z") {
+
+            button.textContent = "Z";
+            button.classList.add("selected-z");
+
+        } else {
+
+            button.textContent = "—";
+        }
+
+    });
+
+
+    /*
+       Nosaka, vai PABEIGT SPĒLI
+       drīkst kļūt aktīva.
+    */
+
+    let canFinish = false;
+
+
+    /*
+       1. variants:
+       kāds sasniedz 4 punktus.
+    */
+
+    if (r >= 4 || z >= 4) {
+        canFinish = true;
+    }
+
+
+    /*
+       2. variants:
+       pēc 6 izspēlēm ir 3 : 3
+       un ir izspēlēta 7. izspēle.
+    */
+
+    if (
+        games[0] !== null &&
+        games[1] !== null &&
+        games[2] !== null &&
+        games[3] !== null &&
+        games[4] !== null &&
+        games[5] !== null
+    ) {
+
+        if (r === 3 && z === 3) {
+
+            /*
+               3 : 3 vēl NAV gala rezultāts.
+               Jābūt izspēlētai 7. izspēlei.
+            */
+
+            if (games[6] !== null) {
+
+                canFinish = true;
+            } else {
+
+                canFinish = false;
+            }
+        }
+    }
+
+
+    /*
+       Poga
+    */
+
+    let finishButton =
+        document.getElementById("finishButton");
+
+    if (canFinish) {
+
+        finishButton.disabled = false;
+        finishButton.classList.add("active");
+
+    } else {
+
+        finishButton.disabled = true;
+        finishButton.classList.remove("active");
+    }
+
+
+    /*
+       Statusa teksts
+    */
+
+    let status =
+        document.getElementById("status");
+
+    if (r === 3 && z === 3 && games[6] === null) {
+
+        status.textContent =
+            "3 : 3 — jāizspēlē 7. izspēle.";
+
+    } else if (r < 4 && z < 4) {
+
+        status.textContent =
+            "Spēle turpinās.";
+
+    } else {
+
+        status.textContent =
+            "Gala rezultāts ir sasniegts.";
+    }
+
+}
+
+
+/* =========================
+   ŠTOSE
+========================= */
+
+function changeStose(player, amount) {
+
+    if (player === "R") {
+
+        stoseR += amount;
+
+        if (stoseR < 0) {
+            stoseR = 0;
+        }
+
+        document.getElementById("stoseR").textContent =
+            stoseR;
+    }
+
+
+    if (player === "Z") {
+
+        stoseZ += amount;
+
+        if (stoseZ < 0) {
+            stoseZ = 0;
+        }
+
+        document.getElementById("stoseZ").textContent =
+            stoseZ;
+    }
+
+}
+
+
+/* =========================
+   PABEIGT SPĒLI
+========================= */
+
+function finishGame() {
+
+    if (finished) {
+        return;
+    }
+
+
+    let r = 0;
+    let z = 0;
+
+    games.forEach(function(result) {
+
+        if (result === "R") {
+            r++;
+        }
+
+        if (result === "Z") {
+            z++;
+        }
+
+    });
+
+
+    /*
+       Drošības pārbaude
+    */
+
+    let valid = false;
+
+    if (r >= 4 || z >= 4) {
+        valid = true;
+    }
+
+
+    if (r === 4 && z === 3) {
+        valid = true;
+    }
+
+    if (r === 3 && z === 4) {
+        valid = true;
+    }
+
+
+    if (!valid) {
+
+        alert(
+            "Spēli vēl nevar pabeigt."
+        );
+
+        return;
+    }
+
+
+    finished = true;
+
+
+    /*
+       Swiss Master komanda
+    */
+
+    let swissCommand = "";
+
+    if (r > z) {
+        swissCommand = "1";
+    } else if (z > r) {
+        swissCommand = "2";
+    } else {
+        swissCommand = "3";
+    }
+
+
+    document.getElementById("status").innerHTML =
+        "SPĒLE PABEIGTA<br>" +
+        "Rezultāts: " + r + " : " + z +
+        "<br>Swiss Master komanda: " +
+        "<b>" + swissCommand + "</b>";
+
+
+    /*
+       Pēc pabeigšanas vairs nevar mainīt
+       izspēles.
+    */
+
+    games.forEach(function(result, index) {
+
+        document.getElementById("game" + index).disabled = true;
+
+    });
+
+
+    document.getElementById("finishButton").disabled = true;
+
+}
+
+
+/* =========================
+   ATIESTATĪŠANA
+========================= */
+
+function resetGame() {
+
+    games = [null, null, null, null, null, null, null];
+
+    finished = false;
+
+    updateScreen();
+
+    document.getElementById("status").textContent =
+        "";
+
+}
+
+
+/*
+   Sākotnējais ekrāns
+*/
+
+updateScreen();
+
+</script>
+
+</body>
+</html>
