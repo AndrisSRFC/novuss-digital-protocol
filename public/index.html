@@ -599,8 +599,10 @@ function updateScreen() {
         document.getElementById("status");
 
     if (r === 3 && z === 3) {
-    status.textContent =
-        "Rezultāts 3 : 3 — spēli var pabeigt.";
+    status.innerHTML =
+        "Rezultāts 3 : 3 — spēli var pabeigt vai turpināt, ja to paredz turnīra nolikums.<br><br>" +
+        "Score 3 : 3 — the game can be finished or continued if required by the tournament regulations.";
+}
 
     } else if (r < 4 && z < 4) {
 
