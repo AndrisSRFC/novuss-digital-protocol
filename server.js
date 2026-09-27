@@ -27,6 +27,13 @@ app.get('/api/health',(q,s)=>s.json({ok:true,app:'novuss-digital-protocol',datab
 app.post('/api/tournaments',async(q,s)=>{try{if(await tournament())return s.status(409).json({error:'Aktīvs turnīrs jau pastāv.'});let t={id:id('t'),name:q.body.name||'Novusa turnīrs',year:+q.body.year||new Date().getFullYear(),status:'active'};if(pool)await pool.query('INSERT INTO tournaments(id,name,year) VALUES($1,$2,$3)',[t.id,t.name,t.year]);else mem.t=t;s.json(t)}catch(e){s.status(500).json({error:e.message})}});
 app.get('/api/tournament',async(q,s)=>{try{let t=await tournament();let c=t?await current(t):{round:null,tables:[]};s.json({tournament:t,...c})}catch(e){s.status(500).json({error:e.message})}});
 app.get('/api/swiss-master/results',async(q,s)=>{try{let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});let c=await current(t);let results=c.tables.filter(p=>p.status==='finished'&&p.resultCommand).sort((a,b)=>a.tableNumber-b.tableNumber).map(p=>({tableNumber:p.tableNumber,player1:p.player1,player2:p.player2,score1:p.score1,score2:p.score2,command:p.resultCommand}));s.json({tournamentId:t.id,roundNumber:c.round?c.round.roundNumber:null,results})}catch(e){s.status(500).json({error:e.message})}});
+function swissPairV2(list,played){
+ const groups=[];for(const p of list){let g=groups.find(x=>x.points===p.points);if(!g){g={points:p.points,players:[]};groups.push(g)}g.players.push(p)}
+ let carry=null,out=[];
+ for(const g of groups){let a=g.players.slice();if(carry){a.unshift(carry);carry=null}if(a.length%2)carry=a.pop();let n=a.length/2,top=a.slice(0,n),bottom=a.slice(n),used=new Set();
+  for(const x of top){let j=bottom.findIndex((y,k)=>!used.has(k)&&!played.has([x.name,y.name].sort().join('\u0000')));if(j<0)j=bottom.findIndex((y,k)=>!used.has(k));let y=bottom[j];used.add(j);out.push({player1:x.name,player2:y.name,points1:x.points,points2:y.points,repeat:played.has([x.name,y.name].sort().join('\u0000'))})}}
+ return{pairs:out,bye:carry}
+}
 app.get('/api/swiss/preview',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
  let rows;
@@ -37,11 +44,10 @@ app.get('/api/swiss/preview',async(q,s)=>{try{
  for(const x of rows){maxRound=Math.max(maxRound,+x.round_number||0);let a=P(x.player1),b=P(x.player2);if(x.status!=='finished')continue;a.played++;b.played++;played.add([a.name,b.name].sort().join('\u0000'));let s1=+x.score1,s2=+x.score2;if(s1>s2)a.points+=1;else if(s2>s1)b.points+=1;else{a.points+=0.5;b.points+=0.5}}
  let list=[...players.values()].sort((a,b)=>b.points-a.points||a.start-b.start);
  if(list.length<2)return s.status(400).json({error:'Nav pietiekami spēlētāju Swiss izlozei.'});
- let bye=null;if(list.length%2){bye=[...list].reverse().find(p=>true);list=list.filter(p=>p!==bye)}
- let best=null;
- function rec(left,pairs,cost){if(best&&cost>=best.cost)return;if(!left.length){best={pairs:[...pairs],cost};return}let a=left[0];for(let i=1;i<left.length;i++){let b=left[i],repeat=played.has([a.name,b.name].sort().join('\u0000')),pen=Math.abs(a.points-b.points)*100+(repeat?100000:0)+Math.abs(a.start-b.start)/1000;rec(left.slice(1,i).concat(left.slice(i+1)),pairs.concat([{player1:a.name,player2:b.name,points1:a.points,points2:b.points,repeat}]),cost+pen)}}
- if(list.length<=20)rec(list,[],0);else{let pairs=[];for(let i=0;i<list.length;i+=2)pairs.push({player1:list[i].name,player2:list[i+1].name,points1:list[i].points,points2:list[i+1].points,repeat:played.has([list[i].name,list[i+1].name].sort().join('\u0000'))});best={pairs,cost:null}}
- s.json({version:'V1-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.start-b.start),pairs:best.pairs.map((p,i)=>({tableNumber:i+1,...p})),bye:bye?bye.name:null,note:'Testa izloze salīdzināšanai ar Swiss Master; esošos protokolus nemaina.'})
+ let v2=swissPairV2(list,played),bye=v2.bye;
+ let best={pairs:v2.pairs,cost:null};
+
+ s.json({version:'V2-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.start-b.start),pairs:best.pairs.map((p,i)=>({tableNumber:i+1,...p})),bye:bye?bye.name:null,note:'Testa izloze salīdzināšanai ar Swiss Master; esošos protokolus nemaina.'})
  }catch(e){console.error(e);s.status(500).json({error:e.message})}});
 app.post('/api/swiss/create-round',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
@@ -50,9 +56,9 @@ app.post('/api/swiss/create-round',async(q,s)=>{try{
  let rows;if(pool){let r=await pool.query(`SELECT r.round_number,tp.table_number,tp.player1,tp.player2,tp.score1,tp.score2,tp.status FROM rounds r JOIN tables_protocols tp ON tp.round_id=r.id WHERE r.tournament_id=$1 ORDER BY r.round_number,tp.table_number`,[t.id]);rows=r.rows}else{rows=[];for(const r of [...mem.rounds.values()].filter(x=>x.tournamentId===t.id))for(const p of r.tables.values())rows.push({round_number:r.roundNumber,table_number:p.tableNumber,player1:p.player1,player2:p.player2,score1:p.score1,score2:p.score2,status:p.status})}
  let players=new Map(),played=new Set(),maxRound=0;function P(n){if(!players.has(n))players.set(n,{name:n,points:0,start:players.size+1});return players.get(n)}
  for(const x of rows){maxRound=Math.max(maxRound,+x.round_number||0);let a=P(x.player1),b=P(x.player2);if(x.status!=='finished')continue;played.add([a.name,b.name].sort().join('\u0000'));let s1=+x.score1,s2=+x.score2;if(s1>s2)a.points++;else if(s2>s1)b.points++;else{a.points+=.5;b.points+=.5}}
- let list=[...players.values()].sort((a,b)=>b.points-a.points||a.start-b.start);let bye=null;if(list.length%2){bye=list[list.length-1];list=list.slice(0,-1)}
- let best=null;function rec(left,pairs,cost){if(best&&cost>=best.cost)return;if(!left.length){best={pairs:[...pairs],cost};return}let a=left[0];for(let i=1;i<left.length;i++){let b=left[i],repeat=played.has([a.name,b.name].sort().join('\u0000')),pen=Math.abs(a.points-b.points)*100+(repeat?100000:0)+Math.abs(a.start-b.start)/1000;rec(left.slice(1,i).concat(left.slice(i+1)),pairs.concat([{player1:a.name,player2:b.name}]),cost+pen)}}
- if(list.length<=20)rec(list,[],0);else{best={pairs:[]};for(let i=0;i<list.length;i+=2)best.pairs.push({player1:list[i].name,player2:list[i+1].name})}
+ let list=[...players.values()].sort((a,b)=>b.points-a.points||a.start-b.start);let v2=swissPairV2(list,played),bye=v2.bye;
+ let best={pairs:v2.pairs};
+
  let rn=maxRound+1,rid=id('r');
  if(pool){await pool.query('BEGIN');try{await pool.query('INSERT INTO rounds(id,tournament_id,round_number,source_filename) VALUES($1,$2,$3,$4)',[rid,t.id,rn,'Swiss online V1']);for(let i=0;i<best.pairs.length;i++){let p=best.pairs[i];await pool.query('INSERT INTO tables_protocols(id,round_id,table_number,player1,player2) VALUES($1,$2,$3,$4,$5)',[id('tp'),rid,i+1,p.player1,p.player2])}await pool.query('COMMIT')}catch(e){await pool.query('ROLLBACK');throw e}}
  else{let r={id:rid,tournamentId:t.id,roundNumber:rn,sourceFilename:'Swiss online V1',tables:new Map()};mem.rounds.set(rid,r);best.pairs.forEach((x,i)=>{let p={id:id('tp'),roundId:rid,tableNumber:i+1,player1:x.player1,player2:x.player2,games:[0,0,0,0,0,0,0],score1:0,score2:0,stose1:0,stose2:0,status:'open',resultCommand:null};r.tables.set(i+1,p);mem.tables.set(p.id,p)})}
