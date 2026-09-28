@@ -68,6 +68,18 @@ function swissPairV3(list,played){
   for(let i=0;i<n;i++){let x=top[i],y=best.arr[i];if(x.wantSide==='black'&&y.wantSide==='white')[x,y]=[y,x];out.push({player1:x.name,player2:y.name,points1:x.points,points2:y.points,repeat:played.has([x.name,y.name].sort().join('\\u0000'))})}
  }return{pairs:out,bye:floater}
 }
+function swissPairV6(list,played){
+ const groups=[];for(const p of list){let g=groups.find(x=>x.points===p.points);if(!g){g={points:p.points,players:[]};groups.push(g)}g.players.push(p)}
+ const out=[];let carry=null;
+ const add=(a,b)=>{let x=a,y=b;if(x.wantSide==='black'&&y.wantSide==='white')[x,y]=[y,x];out.push({player1:x.name,player2:y.name,points1:x.points,points2:y.points,repeat:played.has([x.name,y.name].sort().join('\\u0000'))})};
+ for(const g of groups){
+  let a=g.players.slice().sort((x,y)=>y.rating-x.rating||x.pno-y.pno);
+  if(carry){let opponent=a.shift();if(opponent)add(carry,opponent);else a=[carry];carry=null}
+  if(a.length%2===1)carry=a.shift();
+  while(a.length>=2){let x=a.shift(),idx=a.findIndex(y=>!played.has([x.name,y.name].sort().join('\\u0000')));if(idx<0)idx=0;let y=a.splice(idx,1)[0];add(x,y)}
+ }
+ return{pairs:out,bye:carry}
+}
 app.get('/api/swiss/preview',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
  let rows;
@@ -78,10 +90,10 @@ app.get('/api/swiss/preview',async(q,s)=>{try{
  for(const x of rows){maxRound=Math.max(maxRound,+x.round_number||0);let a=P(x.player1),b=P(x.player2);if(x.status!=='finished')continue;a.played++;b.played++;a.wantSide='black';b.wantSide='white';played.add([a.name,b.name].sort().join('\u0000'));let s1=+x.score1,s2=+x.score2;if(s1>s2)a.points+=1;else if(s2>s1)b.points+=1;else{a.points+=0.5;b.points+=0.5}}
  let list=rankSwissPlayers(players.values(),maxRound+1);
  if(list.length<2)return s.status(400).json({error:'Nav pietiekami spēlētāju Swiss izlozei.'});
- let v3=swissPairV3(list,played),bye=v3.bye;
+ let v3=swissPairV6(list,played),bye=v3.bye;
  let best={pairs:v3.pairs,cost:null};
 
- s.json({version:'V5-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V5 preview: nepāra punktu grupas izmanto floater uz nākamo grupu; ranking no swiss_v4.js. Galdu numuri netiek veidoti. DB netiek mainīta.'})
+ s.json({version:'V6-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V6 preview: punktu grupu ķēde pēc IK/ranking; nepāra grupā augstākais IK tiek savienots ar nākamās grupas augstāko IK. ranking no swiss_v4.js. Galdu numuri netiek veidoti. DB netiek mainīta.'})
  }catch(e){console.error(e);s.status(500).json({error:e.message})}});
 app.post('/api/swiss/create-round',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
