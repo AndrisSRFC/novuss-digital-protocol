@@ -59,12 +59,13 @@ const swissTestSeed={
 };
 function swissPairV3(list,played){
  const out=[];const groups=[];for(const p of list){let g=groups.find(x=>x.points===p.points);if(!g){g={points:p.points,players:[]};groups.push(g)}g.players.push(p)}
- for(const group of groups){const a=group.players.slice().sort((x,y)=>x.pno-y.pno),n=a.length/2,top=a.slice(0,n),bottom=a.slice(n);if(a.length%2)throw Error('V3 tests pašlaik paredz pāra spēlētāju skaitu.');
+ let floater=null;
+ for(const group of groups){let a=group.players.slice();if(floater){a.unshift(floater);floater=null}a=a.sort((x,y)=>list.indexOf(x)-list.indexOf(y));if(a.length%2)floater=a.pop();if(!a.length)continue;const n=a.length/2,top=a.slice(0,n),bottom=a.slice(n);
   let best=null;
   function perm(arr,k=0){if(k===arr.length){let cost=0;for(let i=0;i<n;i++){const x=top[i],y=arr[i],key=[x.name,y.name].sort().join('\\u0000');if(played.has(key))cost+=100000;const same=x.wantSide&&y.wantSide&&x.wantSide===y.wantSide;if(same)cost+=1000;cost+=Math.abs(i-bottom.indexOf(y));}if(!best||cost<best.cost)best={cost,arr:arr.slice()};return}for(let i=k;i<arr.length;i++){[arr[k],arr[i]]=[arr[i],arr[k]];perm(arr,k+1);[arr[k],arr[i]]=[arr[i],arr[k]]}}
   perm(bottom.slice());
   for(let i=0;i<n;i++){let x=top[i],y=best.arr[i];if(x.wantSide==='black'&&y.wantSide==='white')[x,y]=[y,x];out.push({player1:x.name,player2:y.name,points1:x.points,points2:y.points,repeat:played.has([x.name,y.name].sort().join('\\u0000'))})}
- }return{pairs:out,bye:null}
+ }return{pairs:out,bye:floater}
 }
 app.get('/api/swiss/preview',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
@@ -79,7 +80,7 @@ app.get('/api/swiss/preview',async(q,s)=>{try{
  let v3=swissPairV3(list,played),bye=v3.bye;
  let best={pairs:v3.pairs,cost:null};
 
- s.json({version:'V4-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V4 preview: ranking no swiss_v4.js; pārošana joprojām testa režīmā. Galdu numuri netiek veidoti. DB netiek mainīta.'})
+ s.json({version:'V5-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V5 preview: nepāra punktu grupas izmanto floater uz nākamo grupu; ranking no swiss_v4.js. Galdu numuri netiek veidoti. DB netiek mainīta.'})
  }catch(e){console.error(e);s.status(500).json({error:e.message})}});
 app.post('/api/swiss/create-round',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
