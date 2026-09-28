@@ -6,6 +6,7 @@ const multer=require('multer');
 const XLSX=require('xlsx');
 const {Server}=require('socket.io');
 const {Pool}=require('pg');
+const {rankSwissPlayers}=require('./swiss_v4');
 const app=express(), server=http.createServer(app), io=new Server(server);
 const PORT=process.env.PORT||3000;
 app.use(express.json({limit:'2mb'}));app.use(express.static(path.join(__dirname,'public')));
