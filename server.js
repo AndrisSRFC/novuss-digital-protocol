@@ -73,12 +73,12 @@ app.get('/api/swiss/preview',async(q,s)=>{try{
  let players=new Map(),played=new Set(),maxRound=0;
  function P(n){if(!players.has(n)){let seed=swissTestSeed[n]||[9999,0];players.set(n,{name:n,points:0,played:0,pno:seed[0],rating:seed[1],wantSide:null})}return players.get(n)}
  for(const x of rows){maxRound=Math.max(maxRound,+x.round_number||0);let a=P(x.player1),b=P(x.player2);if(x.status!=='finished')continue;a.played++;b.played++;a.wantSide='black';b.wantSide='white';played.add([a.name,b.name].sort().join('\u0000'));let s1=+x.score1,s2=+x.score2;if(s1>s2)a.points+=1;else if(s2>s1)b.points+=1;else{a.points+=0.5;b.points+=0.5}}
- let list=[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno);
+ let list=rankSwissPlayers(players.values(),maxRound+1);
  if(list.length<2)return s.status(400).json({error:'Nav pietiekami spēlētāju Swiss izlozei.'});
  let v3=swissPairV3(list,played),bye=v3.bye;
  let best={pairs:v3.pairs,cost:null};
 
- s.json({version:'V3-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V3 preview: pāri pēc punktiem, sākuma PNo/IK, iepriekšējiem pretiniekiem un pušu balansa. Galdu numuri netiek veidoti. DB netiek mainīta.'})
+ s.json({version:'V4-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V4 preview: ranking no swiss_v4.js; pārošana joprojām testa režīmā. Galdu numuri netiek veidoti. DB netiek mainīta.'})
  }catch(e){console.error(e);s.status(500).json({error:e.message})}});
 app.post('/api/swiss/create-round',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
