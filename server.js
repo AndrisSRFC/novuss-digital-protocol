@@ -24,6 +24,21 @@ async function current(t){if(pool){let r=await pool.query(`SELECT r.id AS round_
 async function protocol(pid){if(pool){let r=await pool.query('SELECT * FROM tables_protocols WHERE id=$1',[pid]);return r.rows[0]?norm(r.rows[0]):null}return mem.tables.get(pid)||null}
 async function save(p){[p.score1,p.score2]=scores(p.games);p.resultCommand=command(p.games);p.status=p.resultCommand?'finished':'open';if(pool)await pool.query('UPDATE tables_protocols SET games=$2,score1=$3,score2=$4,stose1=$5,stose2=$6,status=$7,result_command=$8,updated_at=NOW() WHERE id=$1',[p.id,JSON.stringify(p.games),p.score1,p.score2,p.stose1,p.stose2,p.status,p.resultCommand]);return p}
 app.get('/api/health',(q,s)=>s.json({ok:true,app:'novuss-digital-protocol',database:!!pool}));
+app.get('/api/admin/db-diagnostic',async(q,s)=>{try{
+ if(!pool)return s.status(503).json({error:'PostgreSQL nav pieslēgts.'});
+ const t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
+ const r=await pool.query(`SELECT r.id,r.round_number,r.source_filename,r.created_at,
+ COUNT(tp.id)::int AS protocol_count,
+ COUNT(*) FILTER (WHERE tp.status='finished')::int AS finished_count,
+ COUNT(ps.token)::int AS phone_session_count
+ FROM rounds r
+ LEFT JOIN tables_protocols tp ON tp.round_id=r.id
+ LEFT JOIN phone_sessions ps ON ps.table_protocol_id=tp.id
+ WHERE r.tournament_id=$1
+ GROUP BY r.id,r.round_number,r.source_filename,r.created_at
+ ORDER BY r.round_number`,[t.id]);
+ s.json({readOnly:true,tournament:{id:t.id,name:t.name,year:t.year,status:t.status},rounds:r.rows});
+ }catch(e){console.error(e);s.status(500).json({error:e.message})}});
 app.post('/api/tournaments',async(q,s)=>{try{if(await tournament())return s.status(409).json({error:'Aktīvs turnīrs jau pastāv.'});let t={id:id('t'),name:q.body.name||'Novusa turnīrs',year:+q.body.year||new Date().getFullYear(),status:'active'};if(pool)await pool.query('INSERT INTO tournaments(id,name,year) VALUES($1,$2,$3)',[t.id,t.name,t.year]);else mem.t=t;s.json(t)}catch(e){s.status(500).json({error:e.message})}});
 app.get('/api/tournament',async(q,s)=>{try{let t=await tournament();let c=t?await current(t):{round:null,tables:[]};s.json({tournament:t,...c})}catch(e){s.status(500).json({error:e.message})}});
 app.get('/api/swiss-master/results',async(q,s)=>{try{let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});let c=await current(t);let results=c.tables.filter(p=>p.status==='finished'&&p.resultCommand).sort((a,b)=>a.tableNumber-b.tableNumber).map(p=>({tableNumber:p.tableNumber,player1:p.player1,player2:p.player2,score1:p.score1,score2:p.score2,command:p.resultCommand}));s.json({tournamentId:t.id,roundNumber:c.round?c.round.roundNumber:null,results})}catch(e){s.status(500).json({error:e.message})}});
