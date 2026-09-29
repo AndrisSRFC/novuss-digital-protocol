@@ -129,6 +129,31 @@ function swissPairV8(list,played){
  }
  return{pairs:out,bye:null}
 }
+function swissPairV9(list,played){
+ const groups=[];for(const p of list){let g=groups.find(x=>x.points===p.points);if(!g){g={points:p.points,players:[]};groups.push(g)}g.players.push(p)}
+ const out=[],key=(a,b)=>[a.name,b.name].sort().join('\\u0000');
+ const add=(a,b)=>{let x=a,y=b;if(x.wantSide==='black'&&y.wantSide==='white')[x,y]=[y,x];out.push({player1:x.name,player2:y.name,points1:x.points,points2:y.points,repeat:played.has(key(x,y))})};
+ for(let gi=0;gi<groups.length;gi++){
+  let a=groups[gi].players.slice().sort((x,y)=>y.rating-x.rating||x.pno-y.pno);
+  // First make pairs inside the same points group, strictly by IK order.
+  while(a.length>=2){
+   let x=a.shift(),y=a.shift();add(x,y);
+  }
+  // Only the unpaired player crosses to the next lower points group.
+  if(a.length===1 && gi+1<groups.length){
+   let x=a.shift();
+   let lower=groups[gi+1].players.slice().sort((p,q)=>q.rating-p.rating||p.pno-q.pno);
+   let idx=lower.findIndex(y=>!played.has(key(x,y)));if(idx<0)idx=0;
+   let y=lower[idx];
+   if(y){add(x,y);groups[gi+1].players=groups[gi+1].players.filter(p=>p!==y)}
+   else groups[gi].players=[x];
+  }
+ }
+ let bye=null;
+ const used=new Set(out.flatMap(p=>[p.player1,p.player2]));
+ for(const p of list)if(!used.has(p.name)){bye=p;break}
+ return{pairs:out,bye}
+}
 app.get('/api/swiss/preview',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
  let rows;
@@ -139,10 +164,10 @@ app.get('/api/swiss/preview',async(q,s)=>{try{
  for(const x of rows){maxRound=Math.max(maxRound,+x.round_number||0);let a=P(x.player1),b=P(x.player2);if(x.status!=='finished')continue;a.played++;b.played++;a.wantSide='black';b.wantSide='white';played.add([a.name,b.name].sort().join('\u0000'));let s1=+x.score1,s2=+x.score2;if(s1>s2)a.points+=1;else if(s2>s1)b.points+=1;else{a.points+=0.5;b.points+=0.5}}
  let list=rankSwissPlayers(players.values(),maxRound+1);
  if(list.length<2)return s.status(400).json({error:'Nav pietiekami spēlētāju Swiss izlozei.'});
- let v3=swissPairV8(list,played),bye=v3.bye;
+ let v3=swissPairV9(list,played),bye=v3.bye;
  let best={pairs:v3.pairs,cost:null};
 
- s.json({version:'V8-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V8 preview: ja punktu grupā ir nepāra skaits, tās lielākais IK tiek sapārots ar nākamās zemākās punktu grupas lielāko pieejamo IK; pārējie turpina savā grupā. ranking no swiss_v4.js. Galdu numuri netiek veidoti. DB netiek mainīta.'})
+ s.json({version:'V9-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V9 preview: prioritāte punkti, tad IK. Vispirms pāro savā punktu grupā pēc IK; ja viens paliek, tam piešķir nākamās zemākās punktu grupas lielāko pieejamo IK, tad turpina ar atlikušajiem. ranking no swiss_v4.js. Galdu numuri netiek veidoti. DB netiek mainīta.'})
  }catch(e){console.error(e);s.status(500).json({error:e.message})}});
 app.post('/api/swiss/create-round',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
