@@ -211,10 +211,10 @@ app.get('/api/swiss/preview',async(q,s)=>{try{
  for(const x of rows){maxRound=Math.max(maxRound,+x.round_number||0);let a=P(x.player1),b=P(x.player2);if(x.status!=='finished')continue;a.played++;b.played++;a.wantSide='black';b.wantSide='white';played.add([a.name,b.name].sort().join('\u0000'));let s1=+x.score1,s2=+x.score2;if(s1>s2)a.points+=1;else if(s2>s1)b.points+=1;else{a.points+=0.5;b.points+=0.5}}
  let list=rankSwissPlayers(players.values(),maxRound+1);
  if(list.length<2)return s.status(400).json({error:'Nav pietiekami spēlētāju Swiss izlozei.'});
- let v3=swissPairV11(list,played),bye=v3.bye;
+ let v3=swissPairV9(list,played),bye=v3.bye;
  let best={pairs:v3.pairs,cost:null};
 
- s.json({version:'V11-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V11 preview: V9 punktu grupu pāreja saglabāta; pāra atlikumu grupā dala augšējā/apakšējā IK pusē un pāro 1-1, 2-2 utt. DB netiek mainīta. Galdu numuri netiek veidoti. DB netiek mainīta.'})
+ s.json({version:'V9-test',nextRound:maxRound+1,standings:[...players.values()].sort((a,b)=>b.points-a.points||a.pno-b.pno),pairs:best.pairs.map(p=>({...p})),bye:bye?bye.name:null,note:'V9 preview: prioritāte punkti, tad IK. Vispirms pāro savā punktu grupā pēc IK; ja viens paliek, tam piešķir nākamās zemākās punktu grupas lielāko pieejamo IK, tad turpina ar atlikušajiem. ranking no swiss_v4.js. Galdu numuri netiek veidoti. DB netiek mainīta.'})
  }catch(e){console.error(e);s.status(500).json({error:e.message})}});
 app.post('/api/swiss/create-round',async(q,s)=>{try{
  let t=await tournament();if(!t)return s.status(404).json({error:'Nav aktīva turnīra.'});
